@@ -1,0 +1,109 @@
+#! /bin/bash
+
+
+function help {
+    echo -e "Usage: vproxy [-opt] [command]\n"
+    echo -e "Options ('[]' optional fields, '<>' required fields):\n"
+    echo -e "\t-n '<name>' .ovpn filename or identifier"
+    echo -e "\t-p '<port>' Forward port"
+    echo -e "\t-a '[IP1:IP2]' Allowed hosts"
+    echo -e "\t-l List all running proxies"
+    echo -e "\t-t Route all traffic through Tor. You->VPN->TOR->Server"
+    echo -e "\t-d Show debug information"
+    echo -e "\t-h This help"
+    echo -e "\t-C Configure Proxychains (root required)"
+    echo -e "\n Example: ./vproxy -n Europe -p 1900 -t -a 192.168.2.3:192.168.2.5:192.168.2.4"
+    exit 1
+}
+
+function list_proxies {
+    PROXIES=$(docker container ls | grep vproxy | grep -o "\w*vproxy[0-9]\w*" )
+    echo -e "   NAME\t\t\tLOCAL IP\t\tVPN IP"
+    for name in $PROXIES; do
+        echo -e " $name\t\t$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $name) \
+        $(docker exec $name ip a | grep tun0 | grep inet | cut -d' ' -f6) "
+    done
+    
+    exit 0
+}
+
+function enable_proxychain {
+    echo -e " # proxychains.conf  VER 3.1
+random_chain
+proxy_dns
+tcp_read_time_out 15000
+tcp_connect_time_out 8000\n
+[ProxyList] " > /etc/proxychains.conf
+    
+    PROXIES=$(docker container ls | grep vproxy | grep -o "\w*vproxy[0-9]\w*")
+    for name in $PROXIES; do
+        echo "socks5 127.0.0.1 $(echo $name | cut -d'y' -f2)" >> /etc/proxychains.conf
+    done
+    
+    exit 0
+}
+
+################# START #################
+
+if [ $# -eq 0 ]; then
+    help
+fi
+
+    
+DEBUG="-d"
+TOR="F"
+    
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    
+    case $key in
+        -h)
+            help
+        ;;
+        -n)
+            VPN_NAME="$2"
+            shift
+            shift 
+        ;;
+        -d)
+            DEBUG=" "
+            shift
+        ;;
+        -t)
+            TOR="T"
+            shift 
+        ;;
+        -p)
+            PORT="$2"
+            shift
+            shift 
+        ;;
+        -a)
+            LIST="$2:"
+            shift 
+            shift 
+        ;;
+        -l)
+            list_proxies
+        ;;
+        -C)
+            enable_proxychain
+        ;;
+        *)
+            echo -e "Invalid option\n"
+            help
+        ;;
+esac
+done
+
+LIST="${LIST}172.17.0.1"
+image="vproxy"
+container="$image$PORT"
+/usr/bin/docker run $DEBUG --rm -p $PORT:$PORT  -e PROXY_PORT=$PORT \
+                                                -e IP_ADDRESSES=$LIST \
+                                                -e VPN_NAME=$VPN_NAME -e TOR=$TOR    \
+                                                --sysctl net.ipv4.conf.eth0.route_localnet=1 \
+                                                --cap-add=NET_ADMIN --device /dev/net/tun \
+                                                --name $container $image 
+
