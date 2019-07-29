@@ -30,5 +30,14 @@ Options ('[]' optional fields, '<>' required fields):
  Example: ./vproxy -n Europe -p 1900 -t -a 192.168.2.3:192.168.2.5:192.168.2.4
 
 ```
+
+```
+shell$ vproxy -l                                                    
+   NAME			LOCAL IP		VPN IP		EXIT NODE IP
+ vproxy9000		172.17.0.3         12.20.114.182/24	TOR:51.15.80.14   	
+ vproxy1337		172.17.0.2         11.66.210.83/24	109.112.127.149   	
+ vproxy1338		172.17.0.4         10.74.30.64/24	134.14.159.103
+```
+
 ## TODO
 * A more fine-grained Tor configuration.
