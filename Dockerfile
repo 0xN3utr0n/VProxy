@@ -1,7 +1,7 @@
 FROM debian:latest
 MAINTAINER 0xN3utron <0xn3utr0n@pm.com>
 
-RUN apt update && apt -y install openvpn ssh net-tools iptables tor
+RUN apt update && apt -y install openvpn ssh net-tools iptables tor curl
 
 COPY cnf/vpn /root/vpn
 COPY cnf/sshd_config /etc/ssh/sshd_config

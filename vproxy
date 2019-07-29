@@ -18,10 +18,26 @@ function help {
 
 function list_proxies {
     PROXIES=$(docker container ls | grep vproxy | grep -o "\w*vproxy[0-9]\w*" )
-    echo -e "   NAME\t\t\tLOCAL IP\t\tVPN IP"
+    
+    echo -e "   NAME\t\t\tLOCAL IP\t\tVPN IP\t\tEXIT NODE IP"
     for name in $PROXIES; do
-        echo -e " $name\t\t$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $name) \
-        $(docker exec $name ip a | grep tun0 | grep inet | cut -d' ' -f6) "
+        echo -e -n " $name\t\t$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $name) \
+        $(docker exec $name ip a | grep tun0 | grep inet | cut -d' ' -f6)\t"
+        
+        docker exec $name ps -uax | grep tor &> /dev/null
+        if [ $? -eq 0 ]; then
+            echo -e -n "TOR:"
+            ip=$(docker exec $name curl --connect-timeout 10  -x socks5://localhost:9050 -s https://api.ipify.org)
+        else
+            ip=$(docker exec $name curl --connect-timeout 5 -s https://api.ipify.org)
+        fi
+        
+        
+        if [ $? -eq 0 ]; then
+            echo -e "$ip   \t"
+        else
+            echo -e "ERROR  \t"
+        fi
     done
     
     exit 0
